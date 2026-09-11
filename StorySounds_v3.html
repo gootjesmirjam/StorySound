@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="nl"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#173f3b"><title>StorySounds v3</title>
+<style>
+:root{--bg:#f4f1e9;--card:#fffdf8;--ink:#173f3b;--muted:#6d7773;--accent:#e59b5c}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink)}
+.app{max-width:480px;margin:auto;min-height:100vh;padding:22px 16px 34px}h1{font-size:31px;margin:6px 0 3px}.sub{color:var(--muted);margin-bottom:18px}
+.card{background:var(--card);border-radius:22px;padding:18px;margin:13px 0;box-shadow:0 5px 20px #173f3b12}
+.row{display:flex;gap:12px;align-items:center}.icon{font-size:28px}.grow{flex:1}.title{font-size:17px;font-weight:700}.small{font-size:12px;color:var(--muted);margin-top:3px}
+button,.filelabel{border:0;border-radius:14px;padding:12px 15px;font-size:15px;font-weight:650;background:var(--ink);color:white;cursor:pointer;text-align:center;display:inline-block}
+.secondary{background:#e8e4da;color:var(--ink)}input[type=file]{display:none}
+.list{margin-top:12px}.item{display:flex;align-items:center;gap:9px;padding:11px 4px;border-top:1px solid #e8e3d8}.item button{padding:8px 10px;margin-left:auto}
+.player{text-align:center}.cover{font-size:55px}.progress{width:100%;accent-color:var(--ink)}.time{display:flex;justify-content:space-between;color:var(--muted);font-size:12px}
+.controls{display:flex;justify-content:center;gap:10px;margin:16px 0}.controls button{min-width:58px;height:48px;padding:0}.play{background:var(--accent);color:var(--ink)!important;font-size:23px!important}
+.vol{margin:17px 0 5px;text-align:left}.voltop{display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:650}.pct{font-variant-numeric:tabular-nums}
+.vol input{width:100%;height:34px;accent-color:var(--ink)}
+select{width:100%;padding:12px;border-radius:13px;border:1px solid #ddd7ca;background:white;font-size:15px}.status{font-size:12px;color:var(--muted);margin-top:9px;min-height:17px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}.actions .filelabel{flex:1}.empty{color:var(--muted);font-size:13px;padding:8px 0}
+</style></head><body>
+<div class="app">
+<h1>StorySounds</h1><div class="sub">Jouw luisterboek, jouw soundtrack 🎧📖</div>
+<div class="card"><div class="row"><div class="icon">📚</div><div class="grow"><div class="title">Mijn hoofdstukken</div><div class="small">Voeg meerdere MP3's toe</div></div></div>
+<div class="actions" style="margin-top:14px"><label class="filelabel">＋ Hoofdstukken<input id="books" type="file" accept=".mp3,audio/mpeg,audio/*" multiple></label></div>
+<div id="bookList" class="list"><div class="empty">Nog geen hoofdstukken toegevoegd.</div></div></div>
+<div class="card"><div class="row"><div class="icon">🎵</div><div class="grow"><div class="title">Mijn muziek</div><div class="small">Voeg één of meerdere nummers toe</div></div></div>
+<div class="actions" style="margin-top:14px"><label class="filelabel secondary">＋ Muziek<input id="music" type="file" accept=".mp3,audio/mpeg,audio/*" multiple></label></div>
+<div id="musicList" class="list"><div class="empty">Nog geen muziek toegevoegd.</div></div></div>
+<div class="card player"><div class="cover">🎧</div><div class="title" id="now">Kies een hoofdstuk</div><div class="small" id="nowMusic">Kies ook muziek</div><br>
+<input id="progress" class="progress" type="range" min="0" max="100" value="0"><div class="time"><span id="cur">0:00</span><span id="dur">0:00</span></div>
+<div class="controls"><button class="secondary" id="back">↶ 15</button><button class="play" id="play">▶</button><button class="secondary" id="next">⏭</button></div>
+<div class="vol"><div class="voltop"><span>📖 Stemvolume</span><span id="bp">100%</span></div><input id="bv" type="range" min="0" max="1" step=".01" value="1"></div>
+<div class="vol"><div class="voltop"><span>🎵 Muziekvolume</span><span id="mp">20%</span></div><input id="mv" type="range" min="0" max="1" step=".01" value=".2"></div>
+<select id="timer"><option value="0">😴 Slaaptimer: uit</option><option value="15">15 minuten</option><option value="30">30 minuten</option><option value="45">45 minuten</option><option value="60">60 minuten</option></select>
+<div class="status" id="status"></div></div></div>
+<audio id="ba" preload="metadata"></audio><audio id="ma" preload="metadata" loop></audio>
+<script>
+const $=id=>document.getElementById(id),ba=$("ba"),ma=$("ma");let books=[],music=[],bi=-1,mi=-1,timer=null,ctx=null,bg=null,mg=null,bs=null,ms=null;
+const fmt=s=>isFinite(s)?Math.floor(s/60)+":"+Math.floor(s%60).toString().padStart(2,"0"):"0:00";
+const msg=t=>$("status").textContent=t;
+const esc=s=>s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function initAudio(){if(ctx)return;ctx=new(window.AudioContext||window.webkitAudioContext)();bg=ctx.createGain();mg=ctx.createGain();bs=ctx.createMediaElementSource(ba);ms=ctx.createMediaElementSource(ma);bs.connect(bg).connect(ctx.destination);ms.connect(mg).connect(ctx.destination);bg.gain.value=+$("bv").value;mg.gain.value=+$("mv").value;}
+function addFiles(list,type){[...list].forEach(f=>{if(!f.name.toLowerCase().endsWith(".mp3")&&!f.type.startsWith("audio/"))return;let o={name:f.name,url:URL.createObjectURL(f)};(type==="book"?books:music).push(o)});render();msg("Bestand(en) toegevoegd.");}
+function render(){$("bookList").innerHTML=books.length?books.map((x,i)=>'<div class="item">📖 <span>'+esc(x.name)+'</span><button class="secondary" onclick="selectBook('+i+')">Kies</button></div>').join(""):'<div class="empty">Nog geen hoofdstukken toegevoegd.</div>';$("musicList").innerHTML=music.length?music.map((x,i)=>'<div class="item">🎵 <span>'+esc(x.name)+'</span><button class="secondary" onclick="selectMusic('+i+')">Kies</button></div>').join(""):'<div class="empty">Nog geen muziek toegevoegd.</div>';}
+window.selectBook=i=>{bi=i;ba.src=books[i].url;$("now").textContent=books[i].name;ba.load();msg("Hoofdstuk geselecteerd.")};
+window.selectMusic=i=>{mi=i;ma.src=music[i].url;$("nowMusic").textContent=music[i].name;ma.load();msg("Muziek geselecteerd.")};
+$("books").onchange=e=>addFiles(e.target.files,"book");$("music").onchange=e=>addFiles(e.target.files,"music");
+$("play").onclick=async()=>{if(bi<0){msg("Kies eerst een hoofdstuk.");return}try{initAudio();if(ctx.state==="suspended")await ctx.resume();if(ba.paused){await ba.play();if(mi>=0)await ma.play();$("play").textContent="⏸";msg("Afspelen…")}else{ba.pause();ma.pause();$("play").textContent="▶";msg("Gepauzeerd.")}}catch(e){msg("Tik nogmaals op ▶ om het afspelen te starten.")}};
+$("back").onclick=()=>ba.currentTime=Math.max(0,ba.currentTime-15);
+$("next").onclick=()=>{if(bi+1<books.length){selectBook(bi+1);ba.play();if(mi>=0)ma.play();$("play").textContent="⏸"}else msg("Dit is het laatste hoofdstuk.")};
+ba.ontimeupdate=()=>{$("cur").textContent=fmt(ba.currentTime);$("progress").value=ba.duration?ba.currentTime/ba.duration*100:0};ba.onloadedmetadata=()=>$("dur").textContent=fmt(ba.duration);
+ba.onended=()=>{if(bi+1<books.length){selectBook(bi+1);ba.play();if(mi>=0)ma.play()}else{$("play").textContent="▶";ma.pause();msg("Luisterboek afgelopen.")}};
+$("progress").oninput=e=>{if(ba.duration)ba.currentTime=ba.duration*e.target.value/100};
+$("bv").oninput=e=>{let v=+e.target.value;$("bp").textContent=Math.round(v*100)+"%";if(!ctx)initAudio();bg.gain.setTargetAtTime(v,ctx.currentTime,.01)};
+$("mv").oninput=e=>{let v=+e.target.value;$("mp").textContent=Math.round(v*100)+"%";if(!ctx)initAudio();mg.gain.setTargetAtTime(v,ctx.currentTime,.01)};
+$("timer").onchange=e=>{if(timer)clearTimeout(timer);let m=+e.target.value;if(!m){msg("Slaaptimer uit.");return}timer=setTimeout(()=>{ba.pause();ma.pause();$("play").textContent="▶";$("timer").value="0";msg("Slaaptimer gestopt.")},m*60000);msg("Slaaptimer ingesteld op "+m+" minuten.")};
+render();
+</script></body></html>
